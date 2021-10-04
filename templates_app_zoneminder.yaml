@@ -1,0 +1,709 @@
+zabbix_export:
+  version: '5.4'
+  date: '2021-10-04T19:35:41Z'
+  groups:
+    -
+      uuid: a3ba81a96e314691b27b359274184522
+      name: 'ZoneMinder servers'
+  templates:
+    -
+      uuid: bfa5623ebb4942168e06f86645b3eec3
+      template: 'Template App ZoneMinder'
+      name: 'Template App ZoneMinder'
+      groups:
+        -
+          name: 'ZoneMinder servers'
+      items:
+        -
+          uuid: f7295558a1394d9eaf4c445049ff9fa6
+          name: 'ZoneMinder: Get Monitors Data'
+          type: SCRIPT
+          key: zoneminder.get
+          delay: 30s
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          params: |
+            var Zoneminder = {
+                params: {},
+            
+                setParams: function (params) {
+                    ['api_endpoint', 'user', 'password'].forEach(function (field) {
+                        if (typeof params !== 'object' || typeof params[field] === 'undefined'
+                                || params[field] === '') {
+                            throw 'Required param is not set: "' + field + '".';
+                        }
+                    });
+            
+                    Zoneminder.params = params;
+                    if (typeof Zoneminder.params.api_endpoint === 'string') {
+                        if (!Zoneminder.params.api_endpoint.endsWith('/')) {
+                            Zoneminder.params.api_endpoint += '/';
+                        }
+                    }
+                },
+            
+                request: function (method, query, data) {
+                    var response,
+                        request = new HttpRequest(),
+                        url = Zoneminder.params.api_endpoint + query;
+            
+                    request.addHeader('Content-Type: application/x-www-form-urlencoded');
+                    Zabbix.log(4, '[ Zoneminder ] Sending request: ' + url + ((typeof data === 'string') ? ('\n' + data) : ''));
+            
+                    switch (method) {
+                        case 'get':
+                            response = request.get(url, data);
+                            break;
+            
+                        case 'post':
+                            response = request.post(url, data);
+                            break;
+            
+                        default:
+                            throw 'Unsupported HTTP request method: ' + method;
+                    }
+            
+                    Zabbix.log(4, '[ Zoneminder ] Received response with status code ' + request.getStatus() + ': ' + response);
+            
+                    if (request.getStatus() < 200 || request.getStatus() >= 300) {
+                        throw 'Request failed with status code ' + request.getStatus() + ': ' + response + " | " + url + " | " + data;
+                    }
+            
+                    if (response !== null) {
+                        try {
+                            response = JSON.parse(response);
+                        }
+                        catch (error) {
+                            throw 'Failed to parse response received from Zoneminder. Check debug log for more information.';
+                        }
+                    }
+            
+                    return {
+                        status: request.getStatus(),
+                        response: response
+                    };
+                }
+            }
+            
+            try {
+                Zoneminder.setParams(JSON.parse(value));
+            
+                auth_result = Zoneminder.request(
+                    'post',
+                    'host/login.json',
+                    "user=" + Zoneminder.params.user + "&pass=" + Zoneminder.params.password
+                );
+                monitors = Zoneminder.request('get', "/monitors.json?token=" + auth_result.response.access_token);
+            
+                return JSON.stringify(monitors);
+            } catch (error) {
+                error += (String(error).endsWith('.')) ? '' : '.';
+                Zabbix.log(3, '[ Zoneminder ] ERROR: ' + error);
+                throw 'Requesting failed: ' + error;
+            }
+          description: 'The JSON with result of ZoneMinder API request.'
+          timeout: 5s
+          parameters:
+            -
+              name: user
+              value: '{$ZM.USER}'
+            -
+              name: password
+              value: '{$ZM.PASSWORD}'
+            -
+              name: api_endpoint
+              value: '{$ZM.API_ENDPOINT}'
+        -
+          uuid: 16c3243051fb4e71a69e08ff4ae65c6b
+          name: 'ZoneMinder: Get Servers Data'
+          type: SCRIPT
+          key: zoneminder.get_servers
+          delay: 5m
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          params: |
+            var Zoneminder = {
+                params: {},
+            
+                setParams: function (params) {
+                    ['api_endpoint', 'user', 'password'].forEach(function (field) {
+                        if (typeof params !== 'object' || typeof params[field] === 'undefined'
+                                || params[field] === '') {
+                            throw 'Required param is not set: "' + field + '".';
+                        }
+                    });
+            
+                    Zoneminder.params = params;
+                    if (typeof Zoneminder.params.api_endpoint === 'string') {
+                        if (!Zoneminder.params.api_endpoint.endsWith('/')) {
+                            Zoneminder.params.api_endpoint += '/';
+                        }
+                    }
+                },
+            
+                request: function (method, query, data) {
+                    var response,
+                        request = new HttpRequest(),
+                        url = Zoneminder.params.api_endpoint + query;
+            
+                    request.addHeader('Content-Type: application/x-www-form-urlencoded');
+                    Zabbix.log(4, '[ Zoneminder ] Sending request: ' + url + ((typeof data === 'string') ? ('\n' + data) : ''));
+            
+                    switch (method) {
+                        case 'get':
+                            response = request.get(url, data);
+                            break;
+            
+                        case 'post':
+                            response = request.post(url, data);
+                            break;
+            
+                        default:
+                            throw 'Unsupported HTTP request method: ' + method;
+                    }
+            
+                    Zabbix.log(4, '[ Zoneminder ] Received response with status code ' + request.getStatus() + ': ' + response);
+            
+                    if (request.getStatus() < 200 || request.getStatus() >= 300) {
+                        throw 'Request failed with status code ' + request.getStatus() + ': ' + response + " | " + url + " | " + data;
+                    }
+            
+                    if (response !== null) {
+                        try {
+                            response = JSON.parse(response);
+                        }
+                        catch (error) {
+                            throw 'Failed to parse response received from Zoneminder. Check debug log for more information.';
+                        }
+                    }
+            
+                    return {
+                        status: request.getStatus(),
+                        response: response
+                    };
+                }
+            }
+            
+            try {
+                Zoneminder.setParams(JSON.parse(value));
+            
+                auth_result = Zoneminder.request(
+                    'post',
+                    'host/login.json',
+                    "user=" + Zoneminder.params.user + "&pass=" + Zoneminder.params.password
+                );
+                monitors = Zoneminder.request('get', "/servers.json?token=" + auth_result.response.access_token);
+            
+                return JSON.stringify(monitors);
+            } catch (error) {
+                error += (String(error).endsWith('.')) ? '' : '.';
+                Zabbix.log(3, '[ Zoneminder ] ERROR: ' + error);
+                throw 'Requesting failed: ' + error;
+            }
+          description: 'The JSON with result of ZoneMinder API request.'
+          timeout: 5s
+          parameters:
+            -
+              name: api_endpoint
+              value: '{$ZM.API_ENDPOINT}'
+            -
+              name: password
+              value: '{$ZM.PASSWORD}'
+            -
+              name: user
+              value: '{$ZM.USER}'
+      discovery_rules:
+        -
+          uuid: 1e6dc7377f49475faf0b5ac5a82cab0b
+          name: 'Monitors discovery'
+          type: DEPENDENT
+          key: zoneminder.monitors.discovery
+          delay: '0'
+          item_prototypes:
+            -
+              uuid: fe4b1bd48d1e459ca365d7c33fe2635d
+              name: 'ZM Monitor {#MONITOR_NAME}: Archived Events'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.archived_events[{#MONITOR_ID}]'
+              delay: '0'
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.ArchivedEvents.first()'
+              master_item:
+                key: zoneminder.get
+            -
+              uuid: 8fefa29fa00d4b96b68be9ccd00784e8
+              name: 'ZM Monitor {#MONITOR_NAME}: Archived Event Disk Space'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.archived_events_disk_space[{#MONITOR_ID}]'
+              delay: '0'
+              units: B
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.ArchivedEventDiskSpace.first()'
+                -
+                  type: JAVASCRIPT
+                  parameters:
+                    - |
+                      if (value === "") {
+                          return 0;
+                      }
+                      return value;
+              master_item:
+                key: zoneminder.get
+            -
+              uuid: 9eb83559b8bc4f3bb39387b4c319effc
+              name: 'ZM Monitor {#MONITOR_NAME}: Capture Bandwidth'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.capture_bandwidth[{#MONITOR_ID}]'
+              delay: '0'
+              value_type: FLOAT
+              units: B/s
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor_Status.CaptureBandwidth.first()'
+              master_item:
+                key: zoneminder.get
+              trigger_prototypes:
+                -
+                  uuid: 882010a8d4bb47449f907588c535d044
+                  expression: 'last(/Template App ZoneMinder/zoneminder.monitor.capture_bandwidth[{#MONITOR_ID}])<{$ZM.MONITOR.MIN_BANDWIDTH}'
+                  name: 'ZM Monitor {#MONITOR_NAME}: Low Bandwidth'
+                  priority: AVERAGE
+            -
+              uuid: 354a6adb28444a1e8b388be5242f0437
+              name: 'ZM Monitor {#MONITOR_NAME}: Capture FPS'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.capture_fps[{#MONITOR_ID}]'
+              delay: '0'
+              value_type: FLOAT
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor_Status.CaptureFPS.first()'
+              master_item:
+                key: zoneminder.get
+            -
+              uuid: cbf513f8bad048babc59ae1197112baa
+              name: 'ZM Monitor {#MONITOR_NAME}: Day Events'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.day_events[{#MONITOR_ID}]'
+              delay: '0'
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.DayEvents.first()'
+              master_item:
+                key: zoneminder.get
+            -
+              uuid: 273c4cba576c42f18f86f4fb3a078cc6
+              name: 'ZM Monitor {#MONITOR_NAME}: Day Event Disk Space'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.day_events_disk_space[{#MONITOR_ID}]'
+              delay: '0'
+              units: B
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.DayEventDiskSpace.first()'
+                -
+                  type: JAVASCRIPT
+                  parameters:
+                    - |
+                      if (value === "") {
+                          return 0;
+                      }
+                      return value;
+              master_item:
+                key: zoneminder.get
+            -
+              uuid: 907d5edbbf7647be973ba793b06355cc
+              name: 'ZM Monitor {#MONITOR_NAME}: Is Enabled'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.enabled[{#MONITOR_ID}]'
+              delay: '0'
+              trends: '0'
+              value_type: CHAR
+              valuemap:
+                name: 'Enabled status'
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.Enabled.first()'
+              master_item:
+                key: zoneminder.get
+              trigger_prototypes:
+                -
+                  uuid: d812ed3ffe924da18049625d7dbeb2a4
+                  expression: 'last(/Template App ZoneMinder/zoneminder.monitor.enabled[{#MONITOR_ID}],#1)<>1'
+                  name: 'ZM Monitor {#MONITOR_NAME}: Enabled'
+                  priority: AVERAGE
+            -
+              uuid: 189b2e6104554121be9685c60ce99e6f
+              name: 'ZM Monitor {#MONITOR_NAME}: Function'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.function[{#MONITOR_ID}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.Function.first()'
+              master_item:
+                key: zoneminder.get
+              trigger_prototypes:
+                -
+                  uuid: 37f5cd5050a3409fadf4fba3c8610551
+                  expression: 'change(/Template App ZoneMinder/zoneminder.monitor.function[{#MONITOR_ID}])=1'
+                  name: 'ZM Monitor {#MONITOR_NAME}: Function Changed'
+                  priority: AVERAGE
+            -
+              uuid: fd6981af36f14f919ac238e1b39f4973
+              name: 'ZM Monitor {#MONITOR_NAME}: Height'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.height[{#MONITOR_ID}]'
+              delay: '0'
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.Height.first()'
+              master_item:
+                key: zoneminder.get
+            -
+              uuid: ed6d1941b7514933a22265e5f3fc6f7e
+              name: 'ZM Monitor {#MONITOR_NAME}: Host'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.host[{#MONITOR_ID}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.Host.first()'
+              master_item:
+                key: zoneminder.get
+            -
+              uuid: 5a71e007a017456e87b29405982e32b1
+              name: 'ZM Monitor {#MONITOR_NAME}: Hour Events'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.hour_events[{#MONITOR_ID}]'
+              delay: '0'
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.HourEvents.first()'
+              master_item:
+                key: zoneminder.get
+            -
+              uuid: 4d6a09bb5aeb411bbf9aa9b3f793d826
+              name: 'ZM Monitor {#MONITOR_NAME}: Hour Event Disk Space'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.hour_events_disk_space[{#MONITOR_ID}]'
+              delay: '0'
+              units: B
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.HourEventDiskSpace.first()'
+                -
+                  type: JAVASCRIPT
+                  parameters:
+                    - |
+                      if (value === "") {
+                          return 0;
+                      }
+                      return value;
+              master_item:
+                key: zoneminder.get
+            -
+              uuid: ff69f57807e14c548597b3ad5aa80596
+              name: 'ZM Monitor {#MONITOR_NAME}: Month Events'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.month_events[{#MONITOR_ID}]'
+              delay: '0'
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.MonthEvents.first()'
+              master_item:
+                key: zoneminder.get
+            -
+              uuid: 46e6377d8eb54d35b8364cf330a9cb06
+              name: 'ZM Monitor {#MONITOR_NAME}: Month Event Disk Space'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.month_events_disk_space[{#MONITOR_ID}]'
+              delay: '0'
+              units: B
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.MonthEventDiskSpace.first()'
+                -
+                  type: JAVASCRIPT
+                  parameters:
+                    - |
+                      if (value === "") {
+                          return 0;
+                      }
+                      return value;
+              master_item:
+                key: zoneminder.get
+            -
+              uuid: b662cae91cc1460a853aa4e7f3cc823e
+              name: 'ZM Monitor {#MONITOR_NAME}: Notes'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.notes[{#MONITOR_ID}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.Notes.first()'
+              master_item:
+                key: zoneminder.get
+            -
+              uuid: bf876f1c15d94b9a877b31f3c8514cc1
+              name: 'ZM Monitor {#MONITOR_NAME}: Status'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.status[{#MONITOR_ID}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor_Status.Status.first()'
+              master_item:
+                key: zoneminder.get
+              trigger_prototypes:
+                -
+                  uuid: f49a540e8f884d95be3c7c9d3a339301
+                  expression: 'last(/Template App ZoneMinder/zoneminder.monitor.status[{#MONITOR_ID}],#1)<>"Connected" or nodata(/Template App ZoneMinder/zoneminder.monitor.status[{#MONITOR_ID}],5m)=1'
+                  name: 'ZM Monitor {#MONITOR_NAME}: Status'
+                  priority: HIGH
+            -
+              uuid: 4501135c6cad44a3b5175069f2560f6f
+              name: 'ZM Monitor {#MONITOR_NAME}: StorageId'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.storage_id[{#MONITOR_ID}]'
+              delay: '0'
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.StorageId.first()'
+              master_item:
+                key: zoneminder.get
+            -
+              uuid: 48e62f0ebbda44beb7fae6f6ff3ce47d
+              name: 'ZM Monitor {#MONITOR_NAME}: Total Events'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.total_events[{#MONITOR_ID}]'
+              delay: '0'
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.TotalEvents.first()'
+              master_item:
+                key: zoneminder.get
+            -
+              uuid: d05e23222502468fa5f760c60e36bf26
+              name: 'ZM Monitor {#MONITOR_NAME}: Total Event Disk Space'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.total_events_disk_space[{#MONITOR_ID}]'
+              delay: '0'
+              units: B
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.TotalEventDiskSpace.first()'
+                -
+                  type: JAVASCRIPT
+                  parameters:
+                    - |
+                      if (value === "") {
+                          return 0;
+                      }
+                      return value;
+              master_item:
+                key: zoneminder.get
+            -
+              uuid: 4fa598049c894d8cb507914628d53964
+              name: 'ZM Monitor {#MONITOR_NAME}: Week Events'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.week_events[{#MONITOR_ID}]'
+              delay: '0'
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.WeekEvents.first()'
+              master_item:
+                key: zoneminder.get
+            -
+              uuid: 8d0333d429024821baa5d6f87ef1ada0
+              name: 'ZM Monitor {#MONITOR_NAME}: Week Event Disk Space'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.week_events_disk_space[{#MONITOR_ID}]'
+              delay: '0'
+              units: B
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.WeekEventDiskSpace.first()'
+                -
+                  type: JAVASCRIPT
+                  parameters:
+                    - |
+                      if (value === "") {
+                          return 0;
+                      }
+                      return value;
+              master_item:
+                key: zoneminder.get
+            -
+              uuid: 5d91412e13984a4fb4ce998b0bf0508b
+              name: 'ZM Monitor {#MONITOR_NAME}: Width'
+              type: DEPENDENT
+              key: 'zoneminder.monitor.width[{#MONITOR_ID}]'
+              delay: '0'
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.monitors[?(@.Monitor.Id=={#MONITOR_ID})].Monitor.Width.first()'
+              master_item:
+                key: zoneminder.get
+          graph_prototypes:
+            -
+              uuid: a655f914995c43cb977d659c667ee7c3
+              name: 'ZM Monitor {#MONITOR_NAME}: Capture Bandwidth'
+              graph_items:
+                -
+                  sortorder: '1'
+                  color: 199C0D
+                  item:
+                    host: 'Template App ZoneMinder'
+                    key: 'zoneminder.monitor.capture_bandwidth[{#MONITOR_ID}]'
+            -
+              uuid: cf65ac8351ba49c1999819698294efec
+              name: 'ZM Monitor {#MONITOR_NAME}: Events'
+              graph_items:
+                -
+                  sortorder: '1'
+                  color: 199C0D
+                  item:
+                    host: 'Template App ZoneMinder'
+                    key: 'zoneminder.monitor.total_events_disk_space[{#MONITOR_ID}]'
+                -
+                  sortorder: '2'
+                  color: 2774A4
+                  yaxisside: RIGHT
+                  item:
+                    host: 'Template App ZoneMinder'
+                    key: 'zoneminder.monitor.total_events[{#MONITOR_ID}]'
+          master_item:
+            key: zoneminder.get
+          preprocessing:
+            -
+              type: JAVASCRIPT
+              parameters:
+                - |
+                  var data = JSON.parse(value);
+                  var out = [];
+                  
+                  data.response.monitors.forEach(function (field) {
+                      out.push({
+                          "{#MONITOR_ID}": field.Monitor.Id,
+                          "{#MONITOR_NAME}": field.Monitor.Name,
+                          "{#MONITOR_FUNCTION}": field.Monitor.Function,
+                          "{#MONITOR_ENABLED}": 1 === field.Monitor.Enabled
+                      });
+                  })
+                  
+                  return JSON.stringify(out);
+        -
+          uuid: ec8ea7345432477fa986e019a6cb758b
+          name: 'Servers discovery'
+          type: DEPENDENT
+          key: zoneminder.servers.discovery
+          delay: '0'
+          item_prototypes:
+            -
+              uuid: 87b9631ab05344879ff822da9cc9cf91
+              name: 'ZM Server {#SERVER_NAME}: Status'
+              type: DEPENDENT
+              key: 'zoneminder.server.status[{#SERVER_ID}]'
+              delay: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.response.servers[?(@.Server.Id=={#SERVER_ID})].Server.Status.first()'
+              master_item:
+                key: zoneminder.get_servers
+          master_item:
+            key: zoneminder.get_servers
+          preprocessing:
+            -
+              type: JAVASCRIPT
+              parameters:
+                - |
+                  var data = JSON.parse(value);
+                  var out = [];
+                  
+                  data.response.monitors.forEach(function (field) {
+                      out.push({
+                          "{#SERVER_ID}": field.Server.Id,
+                          "{#SERVER_HOST}": field.Server.Hostname + ":" + field.Server.Port,
+                          "{#SERVER_NAME}": field.Server.Name,
+                          "{#SERVER_STATUS}": field.Server.Status,
+                          "{#SERVER_PROTOCOL}": field.Server.Protocol
+                      });
+                  })
+                  
+                  return JSON.stringify(out);
+      macros:
+        -
+          macro: '{$ZM.MONITOR.MIN_BANDWIDTH}'
+          value: '10240'
+      valuemaps:
+        -
+          uuid: a31ed09da51b49899bd5d70683f5c61b
+          name: 'Enabled status'
+          mappings:
+            -
+              value: '1'
+              newvalue: Enabled
+            -
+              value: '0'
+              newvalue: Disabled
